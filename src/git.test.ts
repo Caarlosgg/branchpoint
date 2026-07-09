@@ -57,10 +57,13 @@ describe("divergencia de ramas (getMergeBase, getCommitCountSince, getDiffStat)"
     execSync(`git checkout -b ${testBranch}`, { cwd: repoRoot, stdio: "ignore" });
     writeFileSync(join(repoRoot, scratchFile), "contenido de prueba fase 4\n");
     execSync(`git add ${scratchFile}`, { cwd: repoRoot, stdio: "ignore" });
-    execSync(`git commit -m "test: commit trivial para fase 4"`, {
-      cwd: repoRoot,
-      stdio: "ignore",
-    });
+    execSync(
+      `git -c user.name="Branchpoint Test" -c user.email="test@branchpoint.local" commit -m "test: commit trivial para fase 4"`,
+      {
+        cwd: repoRoot,
+        stdio: "ignore",
+      },
+    );
   });
 
   afterAll(() => {
