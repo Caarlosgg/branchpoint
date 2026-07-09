@@ -122,7 +122,43 @@ usa `--config-loader native` para evitarlo.
     `get_branch_context` devolvió el contexto de `master`, no el de la
     rama de prueba. Rama de prueba borrada tras la verificación.
 
-- **Siguiente — Fase 3.** Por definir con el usuario: probablemente
-  detección de cambios/commits recientes en la rama para enriquecer el
-  contexto automáticamente, y/o tests con Vitest para `git.ts` y
-  `storage.ts`.
+- **Fase 3 — completada.** Suite de tests con Vitest:
+  - `src/git.test.ts`: `getRepoRoot()` y `getCurrentBranch()` probadas
+    contra el repo real (son wrappers finos sobre Git, mockear
+    `execSync` sería menos honesto que verificar el comando real).
+  - `src/storage.test.ts`: aislado por completo del `.git/branchpoint/`
+    real del proyecto, usando un directorio temporal por test
+    (`mkdtempSync` + `os.tmpdir()`, limpiado en `afterEach`) y
+    `vi.spyOn` sobre `getRepoRoot()` para que `storage.ts` opere
+    sobre ese directorio falso. Incluye test de aislamiento entre
+    ramas (versión automatizada de lo verificado a mano en Fase 2).
+  - Script `"test": "vitest run"` añadido a `package.json`.
+
+- **Fase 4 — completada.** Enriquecimiento automático de contexto vía
+  Git:
+  - `src/git.ts` añade `getDefaultBranch()` (detecta `main`/`master`
+    local vía `git show-ref --verify --quiet`, devuelve `null` si
+    ninguna existe — no debe romper en repos sin convención),
+    `getMergeBase(branchA, branchB)` (devuelve el hash común o `null`
+    si no hay historia compartida), `getRecentCommits(limit = 10)` y
+    `getDiffStat(fromRef, toRef = "HEAD")`. Se añadió también
+    `getCommitCountSince(fromRef, toRef = "HEAD")` (vía
+    `git rev-list --count`), no pedida explícitamente pero necesaria
+    para contar commits desde el merge-base sin sobrecargar
+    `getRecentCommits`.
+  - `get_branch_context` ahora devuelve una respuesta combinada en
+    markdown compacto: resumen manual guardado (o mensaje claro si no
+    hay), sección de divergencia respecto a la rama principal (commits
+    desde el merge-base + `diff --stat`) solo si hay rama principal
+    detectada y no es la rama activa, y los últimos 10 commits. La
+    sección de divergencia se omite sin error si no hay rama principal
+    o si estamos parados en ella.
+  - Tests en `git.test.ts` para las cuatro funciones nuevas contra el
+    repo real, incluyendo un caso con rama temporal y commit trivial
+    para verificar `getMergeBase`/`getCommitCountSince`/`getDiffStat`
+    con divergencia real (rama borrada tras el test).
+  - Verificado a mano con Inspector: `get_branch_context` en `master`
+    omite la sección de divergencia; en una rama de prueba con 2
+    commits muestra la sección completa con el diff-stat correcto.
+
+- **Siguiente — Fase 5.** Por definir con el usuario.
