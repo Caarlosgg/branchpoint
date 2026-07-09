@@ -49,6 +49,14 @@ Nota de instalación: `tsdown` fija como peer dependency `typescript ^5 ||
 npm pero rompe esa peer dependency, así que el proyecto fija
 `typescript@^6.0.3` explícitamente hasta que tsdown soporte TS 7.
 
+Nota de build: por defecto `tsdown` emite `dist/index.mjs`. Se añadió
+`tsdown.config.mjs` con `outExtensions` para forzar `dist/index.js` (más
+cómodo para invocar el servidor, y ya es ESM real gracias a `"type":
+"module"` en `package.json`). El loader de config por defecto de tsdown
+0.22.4 depende de un paquete `unrun` que no está instalado y rompe al
+cargar cualquier config file (`.ts` o `.mjs` por igual); el script `build`
+usa `--config-loader native` para evitarlo.
+
 ## Reglas críticas
 
 1. **NUNCA usar `console.log`.** El transporte stdio usa stdout como canal
@@ -78,9 +86,16 @@ npm pero rompe esa peer dependency, así que el proyecto fija
   - `.gitignore` (`node_modules`, `dist`, `.env`).
   - Carpeta `src/` creada, vacía.
 
-- **Siguiente — Fase 1: walking skeleton.** Implementar un servidor MCP
-  mínimo con una única tool `ping` expuesta vía transporte stdio, y
-  verificar la conexión end-to-end con Claude Code. Objetivo de esta fase:
-  validar que el esqueleto del servidor arranca, responde correctamente al
-  handshake MCP y que no hay ninguna escritura accidental a stdout que
-  rompa el protocolo.
+- **Fase 1 — completada.** Walking skeleton funcionando:
+  - `src/index.ts`: `McpServer` con tool `ping` (input `message: string`
+    validado con Zod), transporte `StdioServerTransport`.
+  - Script `build` (`tsdown --config-loader native`) genera `dist/index.js`.
+  - Verificado end-to-end con `@modelcontextprotocol/inspector --cli`:
+    `tools/list` anuncia `ping` con el JSON Schema generado desde Zod, y
+    `tools/call` devuelve `Pong: <mensaje>` correctamente.
+  - Auditado: `src/index.ts` no contiene ningún `console.log` ni escritura
+    directa a stdout.
+
+- **Siguiente — Fase 2.** Por definir con el usuario: probablemente
+  detección de la rama Git activa y primera lectura/escritura en
+  `.git/branchpoint/`.
