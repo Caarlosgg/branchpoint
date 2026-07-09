@@ -1,5 +1,9 @@
 # Branchpoint
 
+![CI](https://github.com/Caarlosgg/branchpoint/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
+
 Servidor MCP local que da a los agentes de IA memoria persistente y
 consciente de la rama Git activa.
 
