@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "defaultMode": "acceptEdits",
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git branch *)",
+      "Bash(pnpm build)",
+      "Bash(pnpm test *)",
+      "Bash(pnpm run *)",
+      "Bash(node *)",
+      "Bash(npx tsc *)"
+    ],
+    "ask": [
+      "Bash(pnpm add *)",
+      "Bash(pnpm install *)",
+      "Bash(npm install *)",
+      "Bash(npx *)",
+      "Bash(curl *)",
+      "WebFetch"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(sudo *)"
+    ]
+  }
+}
