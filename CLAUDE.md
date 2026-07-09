@@ -96,6 +96,33 @@ usa `--config-loader native` para evitarlo.
   - Auditado: `src/index.ts` no contiene ningún `console.log` ni escritura
     directa a stdout.
 
-- **Siguiente — Fase 2.** Por definir con el usuario: probablemente
-  detección de la rama Git activa y primera lectura/escritura en
-  `.git/branchpoint/`.
+- **Fase 2 — completada.** Detección de rama activa y persistencia de
+  contexto por rama:
+  - `src/git.ts`: `getRepoRoot()` (`git rev-parse --show-toplevel`) y
+    `getCurrentBranch()` (`git branch --show-current`), ambas vía
+    `execSync` de `node:child_process` (sin `simple-git` ni otras
+    dependencias), lanzando errores descriptivos si el comando falla.
+  - `src/storage.ts`: `getContextPath(branch)`, `saveContext(branch,
+    content)` y `readContext(branch)`, todo bajo
+    `<repoRoot>/.git/branchpoint/<branch>.md`. Las ramas con `/` (ej.
+    `feature/login-fix`) se guardan respetando la subcarpeta, igual que
+    `refs/heads/`, no aplanadas.
+  - `src/index.ts` registra dos tools nuevas además de `ping`:
+    `get_branch_context` (sin parámetros; si no hay contexto guardado
+    responde con un mensaje claro, no un error) y
+    `save_branch_context` (parámetro `summary: string` con descripción
+    orientada a que un LLM sepa cuándo usarla).
+  - Verificado con `@modelcontextprotocol/inspector --cli` (instalado
+    temporalmente como devDependency para evitar el conflicto de
+    `devEngines` de npx con pnpm, y desinstalado después de probar):
+    ciclo `save_branch_context` → `get_branch_context` devuelve el
+    mismo contenido.
+  - Verificado aislamiento por rama: se creó la rama `test/aislamiento`,
+    se guardó un contexto distinto ahí, se volvió a `master` y
+    `get_branch_context` devolvió el contexto de `master`, no el de la
+    rama de prueba. Rama de prueba borrada tras la verificación.
+
+- **Siguiente — Fase 3.** Por definir con el usuario: probablemente
+  detección de cambios/commits recientes en la rama para enriquecer el
+  contexto automáticamente, y/o tests con Vitest para `git.ts` y
+  `storage.ts`.
