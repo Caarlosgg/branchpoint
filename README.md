@@ -82,7 +82,16 @@ el enriquecimiento automático en la siguiente lectura.
 
 ## Instalación
 
-Branchpoint todavía no está publicado en npm. Para probarlo localmente:
+La forma más simple es registrar el servidor en Claude Code apuntando
+directamente al paquete de npm vía `npx`, sin instalación previa:
+
+```bash
+claude mcp add branchpoint -- npx -y branchpoint
+```
+
+### Desde el código fuente
+
+Para quien quiera tocar el código:
 
 ```bash
 git clone https://github.com/Caarlosgg/branchpoint.git
@@ -91,8 +100,7 @@ pnpm install
 pnpm build
 ```
 
-Después, registra el servidor en Claude Code apuntando a la ruta absoluta
-del build:
+Y registrar el servidor apuntando a la ruta absoluta del build:
 
 ```bash
 claude mcp add branchpoint -- node /ruta/absoluta/a/branchpoint/dist/index.js
@@ -109,11 +117,15 @@ claude mcp add branchpoint -- node /ruta/absoluta/a/branchpoint/dist/index.js
 - Fase 3 — suite de tests con Vitest (aislamiento por rama incluido).
 - Fase 4 — enriquecimiento automático de contexto vía `git log`/`diff`
   (divergencia respecto a la rama principal, commits recientes).
+- Fase 5 — publicación del repositorio en GitHub.
+- Fase 6 — CI con GitHub Actions.
+- Fase 7 — paquete preparado para publicación en npm (`bin`, shebang,
+  metadatos).
 - 13 tests cubriendo `git.ts` y `storage.ts`.
 
 **Roadmap:**
 
-- Publicación en npm.
+- Publicación en npm (paquete ya preparado, pendiente de `npm publish`).
 - Versión comercial (equipos, sync remoto) sobre el mismo núcleo open-source.
 
 ## Licencia

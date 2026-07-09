@@ -161,4 +161,47 @@ usa `--config-loader native` para evitarlo.
     omite la sección de divergencia; en una rama de prueba con 2
     commits muestra la sección completa con el diff-stat correcto.
 
-- **Siguiente — Fase 5.** Por definir con el usuario.
+- **Fase 5 — completada.** Publicación en GitHub como repo público de
+  portfolio:
+  - `LICENSE` (MIT, 2026, Carlos) y `README.md` (problema, cómo
+    funciona, tools disponibles con ejemplo real de salida, stack,
+    instalación, estado del proyecto).
+  - Repo creado y publicado con
+    `gh repo create branchpoint --public --source=. --remote=origin --push`.
+  - Descripción y topics (`mcp`, `model-context-protocol`,
+    `ai-agents`, `developer-tools`, `git`) añadidos vía `gh repo edit`.
+
+- **Fase 6 — completada.** CI con GitHub Actions:
+  - `.github/workflows/ci.yml`: job `test` en `ubuntu-latest`
+    (checkout, `pnpm/action-setup`, `actions/setup-node` con Node 22
+    y cache de pnpm, `pnpm install --frozen-lockfile`, `pnpm build`,
+    `pnpm test`) en push y pull_request sobre cualquier rama.
+  - Badges de CI, licencia y versión de Node añadidos al README.
+  - El primer run falló: `git.test.ts` ejecuta un `git commit` real
+    dentro del repo y el runner de GitHub Actions no tiene
+    `user.name`/`user.email` configurados globalmente (a diferencia
+    del entorno local). Arreglado pasando la identidad solo a ese
+    comando (`git -c user.name=... -c user.email=... commit ...`) en
+    vez de tocar configuración global de git.
+  - Verificado con `gh run watch`: CI en verde, 13 tests pasan.
+
+- **Fase 7 — completada.** Paquete preparado para publicación en npm:
+  - `package.json`: `version` bajado a `0.1.0` (por debajo de 1.0
+    porque la API de tools puede cambiar todavía), `description`,
+    `keywords`, `license: "MIT"`, `author: "Caarlosgg"`,
+    `repository`/`homepage`/`bugs` apuntando al repo de GitHub,
+    `engines.node: ">=22"`, `bin.branchpoint` apuntando a
+    `./dist/index.js` (permite ejecución vía `npx`), y `files:
+    ["dist"]` para que el paquete publicado no incluya `src/`, tests,
+    `.claude/` ni `CLAUDE.md`.
+  - `tsdown.config.mjs` añade `banner: { js: "#!/usr/bin/env node" }`
+    para inyectar el shebang automáticamente en cada build en vez de
+    escribirlo a mano en el fuente. tsdown además concede permiso de
+    ejecución a `dist/index.js` automáticamente al buildear.
+  - README actualizado: instalación vía `npx` como método principal,
+    clonar + compilar como alternativa para quien quiera tocar el
+    código.
+  - `npm publish` NO se ha ejecutado todavía — pendiente de que el
+    usuario lo haga a mano (requiere 2FA interactivo).
+
+- **Siguiente — Fase 8.** Por definir con el usuario.

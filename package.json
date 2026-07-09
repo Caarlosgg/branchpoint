@@ -1,15 +1,39 @@
 {
   "name": "branchpoint",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.1.0",
+  "description": "MCP server that gives AI coding agents persistent, git-branch-aware context",
   "main": "index.js",
+  "bin": {
+    "branchpoint": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsdown --config-loader native",
     "test": "vitest run"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "git",
+    "ai-agents",
+    "developer-tools",
+    "claude-code"
+  ],
+  "author": "Caarlosgg",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Caarlosgg/branchpoint.git"
+  },
+  "homepage": "https://github.com/Caarlosgg/branchpoint",
+  "bugs": {
+    "url": "https://github.com/Caarlosgg/branchpoint/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
