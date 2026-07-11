@@ -43,6 +43,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@clack/prompts": "^1.7.0",
     "@modelcontextprotocol/sdk": "1.29.0",
     "boxen": "^8.0.1",
     "cli-table3": "^0.6.5",
