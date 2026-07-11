@@ -10,11 +10,12 @@ import {
   getRecentCommits,
 } from "./git.js";
 import { readContext, saveContext } from "./storage.js";
+import { getVersion } from "./version.js";
 
 export async function runMcpServer(): Promise<void> {
   const server = new McpServer({
     name: "branchpoint",
-    version: "0.1.0",
+    version: getVersion(),
   });
 
   server.registerTool(

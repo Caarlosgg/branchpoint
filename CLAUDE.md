@@ -59,11 +59,17 @@ usa `--config-loader native` para evitarlo.
 
 ## Reglas críticas
 
-1. **NUNCA usar `console.log`.** El transporte stdio usa stdout como canal
-   JSON-RPC del protocolo MCP. Cualquier escritura a stdout que no sea un
-   mensaje JSON-RPC válido rompe la comunicación con el cliente (Claude
-   Code, Cursor, etc.). Todo logging de depuración va a **stderr**
-   (`console.error`, o un logger configurado explícitamente hacia stderr).
+1. **stdout es sagrado en el camino MCP.** El transporte stdio usa stdout
+   como canal JSON-RPC del protocolo MCP. En el camino servidor
+   (`src/server.ts` y todo lo que este cargue) cualquier escritura a
+   stdout que no sea un mensaje JSON-RPC válido rompe la comunicación con
+   el cliente (Claude Code, Cursor, etc.); todo logging de depuración va
+   a **stderr**. Matiz desde la Fase 8: la regla aplica al CAMINO MCP; en
+   el camino CLI/interactivo (`src/cli.ts`, `src/interactive.ts`) stdout
+   es precisamente el producto y se imprime con libertad. El dispatcher
+   (`src/index.ts`) usa imports dinámicos para que el proceso en modo MCP
+   nunca llegue a cargar código CLI, y `src/mcp-regression.test.ts`
+   verifica el handshake MCP contra el build real en cada `pnpm test`.
 
 2. **Cada sesión de trabajo (~1h) termina en un commit que compila.** No se
    deja código a medias entre sesiones. Antes de cerrar una sesión: build
@@ -204,4 +210,45 @@ usa `--config-loader native` para evitarlo.
   - `npm publish` NO se ha ejecutado todavía — pendiente de que el
     usuario lo haga a mano (requiere 2FA interactivo).
 
-- **Siguiente — Fase 8.** Por definir con el usuario.
+- **Fase 8 — completada.** Herramienta de doble cara (servidor MCP +
+  CLI para humanos), versión 0.2.0:
+  - `src/index.ts` es ahora un dispatcher mínimo: con argumentos →
+    CLI (Commander); sin argumentos con TTY → modo interactivo; sin
+    argumentos sin TTY → servidor MCP (camino por defecto, el que usan
+    los clientes MCP existentes). Imports dinámicos a propósito: el
+    modo MCP nunca carga código CLI ni sus dependencias.
+  - `src/server.ts`: toda la lógica MCP anterior movida a
+    `runMcpServer()`, sin cambios de comportamiento salvo que la
+    versión del handshake se lee ahora de `package.json` vía
+    `src/version.ts` en vez de estar hardcodeada.
+  - `src/mcp-regression.test.ts`: ejecuta `dist/index.js` compilado
+    como proceso hijo con pipes (sin TTY) y sin argumentos, envía un
+    `initialize` JSON-RPC crudo y verifica el handshake por stdout.
+    Requiere build previo: el script `test` es ahora
+    `pnpm build && vitest run` para correr siempre contra el
+    artefacto real.
+  - CLI en dos capas: `src/queries.ts` (funciones puras que devuelven
+    objetos planos tipados: `getStatusData()`, `getBranchList()`,
+    `getContextData(branch?)`; testeadas con el patrón de directorio
+    temporal + `vi.spyOn`) y `src/cli.ts` (Commander + presentación
+    con picocolors/boxen/cli-table3; sin tests de asserts). Tres
+    subcomandos — `status`, `list`, `context [branch]` — todos con
+    `--json`. Sin contexto guardado NO es error (gris neutro +
+    invitación); rojo solo para errores reales con mensaje accionable.
+    Nota: cli-table3 no respeta `NO_COLOR` por sí solo; el color del
+    borde de la tabla se apaga a mano con `pc.isColorSupported`.
+  - `src/interactive.ts`: menú con `@clack/prompts` (ver contexto,
+    listar ramas, guardar resumen, salir), en bucle hasta salir.
+    Cancelación con Ctrl+C/`isCancel()` → salida limpia, exit code 0.
+    Reutiliza `queries.ts`/`storage.ts`.
+  - Release 0.2.0: README reestructurado con secciones separadas para
+    agentes (MCP) y humanos (CLI, con salidas reales capturadas),
+    `CHANGELOG.md` (Keep a Changelog) incluido también en el tarball
+    de npm (npm no lo auto-incluye y pesa ~2 kB), `version: 0.2.0`.
+    Verificado con `pnpm pack --dry-run`: el tarball contiene solo
+    `dist/`, `CHANGELOG.md`, `LICENSE`, `README.md`, `package.json`.
+  - Dependencias nuevas de producción: `commander`, `picocolors`,
+    `cli-table3`, `boxen`, `@clack/prompts`.
+  - `npm publish` de 0.2.0 NO ejecutado — lo hace el usuario a mano.
+
+- **Siguiente — Fase 9.** Por definir con el usuario.

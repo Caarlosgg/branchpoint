@@ -1,21 +1,12 @@
-import { readFileSync } from "node:fs";
 import boxen from "boxen";
 import Table from "cli-table3";
 import { Command } from "commander";
 import pc from "picocolors";
 import { getBranchList, getContextData, getStatusData } from "./queries.js";
+import { getVersion } from "./version.js";
 
 // Camino CLI: aquí stdout es el producto, se imprime con libertad.
 // Esta capa solo presenta; los datos vienen de queries.ts.
-
-export function getVersion(): string {
-  // dist/ y src/ están ambos un nivel por debajo de package.json, así que
-  // la misma ruta relativa funciona compilado y en desarrollo/tests.
-  const pkg = JSON.parse(
-    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
-  ) as { version: string };
-  return pkg.version;
-}
 
 export function formatDate(iso: string): string {
   const date = new Date(iso);
@@ -102,7 +93,9 @@ function printList(json: boolean): void {
   const table = new Table({
     head: [pc.cyan("Rama"), pc.cyan("Actualizado"), pc.cyan("Resumen")],
     wordWrap: true,
-    style: { head: [] },
+    // cli-table3 no respeta NO_COLOR por sí solo: se apaga el color del
+    // borde a mano cuando el entorno no soporta color (pipes, CI).
+    style: { head: [], border: pc.isColorSupported ? ["grey"] : [] },
   });
   for (const entry of entries) {
     table.push([entry.branch, formatDate(entry.updatedAt), entry.preview]);

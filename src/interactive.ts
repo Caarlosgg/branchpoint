@@ -1,9 +1,10 @@
 import * as p from "@clack/prompts";
 import pc from "picocolors";
-import { formatDate, getVersion } from "./cli.js";
+import { formatDate } from "./cli.js";
 import { getCurrentBranch } from "./git.js";
 import { getBranchList, getContextData } from "./queries.js";
 import { saveContext } from "./storage.js";
+import { getVersion } from "./version.js";
 
 // Camino interactivo: aquí stdout es el producto, se imprime con libertad.
 // Es otra piel sobre la misma lógica: consume queries.ts y storage.ts,

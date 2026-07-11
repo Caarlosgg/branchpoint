@@ -1,13 +1,14 @@
 {
   "name": "branchpoint",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server that gives AI coding agents persistent, git-branch-aware context",
   "main": "index.js",
   "bin": {
     "branchpoint": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "tsdown --config-loader native",
