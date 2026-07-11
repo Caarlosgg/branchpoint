@@ -1,16 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import {
-  getCommitCountSince,
-  getCurrentBranch,
-  getDefaultBranch,
-  getDiffStat,
-  getMergeBase,
-  getRecentCommits,
-} from "./git.js";
-import { readContext, saveContext } from "./storage.js";
+import { getCurrentBranch } from "./git.js";
+import { getBranchContextReport } from "./queries.js";
+import { saveContext } from "./storage.js";
+import { validateSummary } from "./validators.js";
 import { getVersion } from "./version.js";
+
+// Camino MCP: stdout es EXCLUSIVAMENTE el canal JSON-RPC del protocolo.
+// Nada en este fichero (ni en lo que importa) puede escribir a stdout;
+// cualquier log de depuración iría a stderr.
 
 export async function runMcpServer(): Promise<void> {
   const server = new McpServer({
@@ -41,32 +40,11 @@ export async function runMcpServer(): Promise<void> {
       inputSchema: {},
     },
     async () => {
-      const branch = getCurrentBranch();
-      const manualSummary =
-        readContext(branch) ?? "Sin resumen guardado todavía.";
-      const sections = [`## Resumen guardado\n${manualSummary}`];
-
-      const defaultBranch = getDefaultBranch();
-      if (defaultBranch && defaultBranch !== branch) {
-        const mergeBase = getMergeBase(defaultBranch, branch);
-        if (mergeBase) {
-          const commitCount = getCommitCountSince(mergeBase);
-          const diffStat = getDiffStat(mergeBase);
-          sections.push(
-            `## Divergencia respecto a "${defaultBranch}"\n${commitCount} commit(s) desde el punto de divergencia.\n\n\`\`\`\n${diffStat}\n\`\`\``,
-          );
-        }
-      }
-
-      const recentCommits = getRecentCommits(10);
-      if (recentCommits.length > 0) {
-        sections.push(
-          `## Últimos commits\n${recentCommits.map((line) => `- ${line}`).join("\n")}`,
-        );
-      }
-
+      // Estados degradados (HEAD desacoplado, repo sin commits) devuelven
+      // texto explicativo como contenido normal, no un error de tool: el
+      // agente puede leerlos y actuar en consecuencia.
       return {
-        content: [{ type: "text", text: sections.join("\n\n") }],
+        content: [{ type: "text", text: getBranchContextReport() }],
       };
     },
   );
@@ -85,7 +63,27 @@ export async function runMcpServer(): Promise<void> {
       },
     },
     async ({ summary }) => {
+      const validationError = validateSummary(summary);
+      if (validationError) {
+        return {
+          isError: true,
+          content: [{ type: "text", text: validationError }],
+        };
+      }
+
       const branch = getCurrentBranch();
+      if (branch === null) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "HEAD desacoplado (detached): no hay rama activa a la que asociar el resumen. Haz checkout de una rama y vuelve a intentarlo.",
+            },
+          ],
+        };
+      }
+
       saveContext(branch, summary);
       return {
         content: [

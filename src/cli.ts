@@ -2,6 +2,7 @@ import boxen from "boxen";
 import Table from "cli-table3";
 import { Command } from "commander";
 import pc from "picocolors";
+import { GitError } from "./git.js";
 import { getBranchList, getContextData, getStatusData } from "./queries.js";
 import { getVersion } from "./version.js";
 
@@ -15,21 +16,25 @@ export function formatDate(iso: string): string {
 }
 
 /**
- * Ejecuta una acción que necesita un repositorio Git. Si falla porque no
- * estamos en uno, imprime a stderr un error accionable (qué hacer, no solo
- * qué falló) y termina con exit code 1.
+ * Ejecuta una acción que necesita un repositorio Git. Los errores SIEMPRE
+ * salen como mensaje accionable por stderr (qué hacer, no solo qué falló)
+ * con exit code 1 — jamás un stack trace. stdout queda limpio para que
+ * `--json | jq` no reciba basura.
  */
 function withRepo(action: () => void): void {
   try {
     action();
   } catch (error) {
-    console.error(pc.red("✖ Branchpoint necesita un repositorio Git."));
-    console.error(
-      "  Muévete a la carpeta de tu proyecto, o inicializa uno con: git init",
-    );
-    console.error(
-      pc.dim(`  Detalle: ${error instanceof Error ? error.message : String(error)}`),
-    );
+    const detail = error instanceof Error ? error.message : String(error);
+    if (error instanceof GitError) {
+      console.error(pc.red("✖ Branchpoint necesita un repositorio Git."));
+      console.error(
+        "  Muévete a la carpeta de tu proyecto, o inicializa uno con: git init",
+      );
+      console.error(pc.dim(`  Detalle: ${detail}`));
+    } else {
+      console.error(pc.red(`✖ ${detail}`));
+    }
     process.exitCode = 1;
   }
 }
@@ -41,7 +46,29 @@ function printStatus(json: boolean): void {
     return;
   }
 
+  // HEAD desacoplado (checkout de commit suelto, rebase a medias) no es
+  // un error: se informa del estado y de cómo salir de él.
+  if (data.branch === null) {
+    console.log(
+      boxen(
+        `${pc.bold("Rama activa:")}  ${pc.dim("(ninguna — HEAD desacoplado)")}\n${pc.dim("Haz checkout de una rama (git checkout <rama>) para usar el contexto por rama.")}`,
+        {
+          title: "branchpoint",
+          titleAlignment: "center",
+          padding: { top: 0, bottom: 0, left: 2, right: 2 },
+          margin: { top: 1, bottom: 1, left: 0, right: 0 },
+          borderColor: "cyan",
+          borderStyle: "round",
+        },
+      ),
+    );
+    return;
+  }
+
   const lines = [`${pc.bold("Rama activa:")}  ${pc.cyan(data.branch)}`];
+  if (!data.hasCommits) {
+    lines.push(pc.dim("El repositorio no tiene commits todavía."));
+  }
   if (data.hasContext && data.updatedAt) {
     lines.push(
       `${pc.bold("Contexto:")}    ${pc.green("guardado")} ${pc.dim(`(actualizado ${formatDate(data.updatedAt)})`)}`,
@@ -110,6 +137,13 @@ function printContext(branch: string | undefined, json: boolean): void {
     return;
   }
 
+  if (data.branch === null) {
+    console.log(
+      `HEAD desacoplado: no hay rama activa. Haz checkout de una rama (${pc.bold("git checkout <rama>")}) o indica una: ${pc.bold("branchpoint context <rama>")}.`,
+    );
+    return;
+  }
+
   if (data.content === null) {
     console.log(
       `La rama ${pc.cyan(data.branch)} no tiene contexto guardado todavía. Guarda el primero ejecutando ${pc.bold("branchpoint")} sin argumentos (modo interactivo).`,
@@ -139,7 +173,9 @@ export function buildProgram(): Command {
 
   program
     .command("status")
-    .description("muestra la rama activa, si tiene contexto guardado y su divergencia")
+    .description(
+      "muestra la rama activa, si tiene contexto guardado y su divergencia",
+    )
     .option("--json", "salida JSON cruda, sin colores ni cajas")
     .action((options: { json?: boolean }) => {
       withRepo(() => printStatus(options.json ?? false));
@@ -147,7 +183,9 @@ export function buildProgram(): Command {
 
   program
     .command("list")
-    .description("lista todas las ramas con contexto guardado, la más reciente primero")
+    .description(
+      "lista todas las ramas con contexto guardado, la más reciente primero",
+    )
     .option("--json", "salida JSON cruda, sin colores ni tabla")
     .action((options: { json?: boolean }) => {
       withRepo(() => printList(options.json ?? false));

@@ -45,10 +45,26 @@ function renderBranchList(): string {
     .join("\n");
 }
 
+/**
+ * Punto de entrada del modo interactivo. Envuelve el bucle real en un
+ * try/catch: pase lo que pase (git desaparece a mitad de sesión, disco
+ * lleno...) el usuario ve un mensaje claro, jamás un volcado de Node.
+ */
 export async function runInteractive(): Promise<void> {
+  try {
+    await interactiveLoop();
+  } catch (error) {
+    p.cancel(
+      `Algo ha fallado: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    process.exitCode = 1;
+  }
+}
+
+async function interactiveLoop(): Promise<void> {
   p.intro(pc.cyan(`branchpoint v${getVersion()}`));
 
-  let branch: string;
+  let branch: string | null;
   try {
     branch = getCurrentBranch();
   } catch {
@@ -56,6 +72,14 @@ export async function runInteractive(): Promise<void> {
       "Branchpoint necesita un repositorio Git. Muévete a la carpeta de tu proyecto, o inicializa uno con: git init",
     );
     process.exitCode = 1;
+    return;
+  }
+
+  if (branch === null) {
+    // Estado válido de git, no un error: mensaje neutro y salida limpia.
+    p.outro(
+      "HEAD desacoplado: no hay rama activa. Haz checkout de una rama (git checkout <rama>) y vuelve a lanzar branchpoint.",
+    );
     return;
   }
 

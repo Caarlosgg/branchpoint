@@ -12,7 +12,9 @@
   ],
   "scripts": {
     "build": "tsdown --config-loader native",
-    "test": "pnpm build && vitest run"
+    "test": "pnpm build && vitest run",
+    "lint": "biome check .",
+    "format": "biome check --write ."
   },
   "keywords": [
     "mcp",

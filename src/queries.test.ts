@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as git from "./git.js";
-import { getBranchList, getContextData, getStatusData } from "./queries.js";
+import {
+  getBranchContextReport,
+  getBranchList,
+  getContextData,
+  getStatusData,
+} from "./queries.js";
 import { getContextPath, saveContext } from "./storage.js";
 
 describe("queries", () => {
@@ -11,7 +16,9 @@ describe("queries", () => {
 
   beforeEach(() => {
     fakeRepoRoot = mkdtempSync(join(tmpdir(), "branchpoint-test-"));
-    vi.spyOn(git, "getRepoRoot").mockReturnValue(fakeRepoRoot);
+    vi.spyOn(git, "getGitCommonDir").mockReturnValue(
+      join(fakeRepoRoot, ".git"),
+    );
   });
 
   afterEach(() => {
@@ -32,6 +39,15 @@ describe("queries", () => {
       expect(branches).toHaveLength(2);
       expect(branches).toContain("master");
       expect(branches).toContain("feature/login-fix");
+    });
+
+    it("muestra los nombres ORIGINALES de ramas sanitizadas en disco", () => {
+      saveContext("CON", "rama con nombre reservado en Windows");
+      saveContext("release.", "rama terminada en punto");
+
+      const branches = getBranchList().map((entry) => entry.branch);
+      expect(branches).toContain("CON");
+      expect(branches).toContain("release.");
     });
 
     it("ordena por fecha de modificación descendente", () => {
@@ -85,6 +101,16 @@ describe("queries", () => {
 
       expect(getContextData().content).toBe("contexto de la rama activa");
     });
+
+    it("HEAD desacoplado sin rama explícita: branch null, sin crash", () => {
+      vi.spyOn(git, "getCurrentBranch").mockReturnValue(null);
+
+      expect(getContextData()).toEqual({
+        branch: null,
+        content: null,
+        updatedAt: null,
+      });
+    });
   });
 
   describe("getStatusData", () => {
@@ -93,18 +119,21 @@ describe("queries", () => {
       vi.spyOn(git, "getDefaultBranch").mockReturnValue("master");
       vi.spyOn(git, "getMergeBase").mockReturnValue("abc123");
       vi.spyOn(git, "getCommitCountSince").mockReturnValue(3);
+      vi.spyOn(git, "hasCommits").mockReturnValue(true);
       saveContext("feature/x", "trabajo en curso");
 
       const data = getStatusData();
       expect(data.branch).toBe("feature/x");
       expect(data.hasContext).toBe(true);
       expect(data.updatedAt).not.toBeNull();
+      expect(data.hasCommits).toBe(true);
       expect(data.divergence).toEqual({ baseBranch: "master", commitCount: 3 });
     });
 
     it("sin contexto guardado: hasContext false, sin fecha", () => {
       vi.spyOn(git, "getCurrentBranch").mockReturnValue("feature/x");
       vi.spyOn(git, "getDefaultBranch").mockReturnValue(null);
+      vi.spyOn(git, "hasCommits").mockReturnValue(true);
 
       const data = getStatusData();
       expect(data.hasContext).toBe(false);
@@ -112,9 +141,31 @@ describe("queries", () => {
       expect(data.divergence).toBeNull();
     });
 
+    it("HEAD desacoplado: branch null y el resto degradado, sin crash", () => {
+      vi.spyOn(git, "getCurrentBranch").mockReturnValue(null);
+      vi.spyOn(git, "getDefaultBranch").mockReturnValue("master");
+      vi.spyOn(git, "hasCommits").mockReturnValue(true);
+
+      const data = getStatusData();
+      expect(data.branch).toBeNull();
+      expect(data.hasContext).toBe(false);
+      expect(data.divergence).toBeNull();
+    });
+
+    it("repo sin commits: hasCommits false y sin divergencia", () => {
+      vi.spyOn(git, "getCurrentBranch").mockReturnValue("main");
+      vi.spyOn(git, "getDefaultBranch").mockReturnValue(null);
+      vi.spyOn(git, "hasCommits").mockReturnValue(false);
+
+      const data = getStatusData();
+      expect(data.hasCommits).toBe(false);
+      expect(data.divergence).toBeNull();
+    });
+
     it("omite la divergencia cuando la rama activa es la principal", () => {
       vi.spyOn(git, "getCurrentBranch").mockReturnValue("master");
       vi.spyOn(git, "getDefaultBranch").mockReturnValue("master");
+      vi.spyOn(git, "hasCommits").mockReturnValue(true);
 
       expect(getStatusData().divergence).toBeNull();
     });
@@ -123,8 +174,59 @@ describe("queries", () => {
       vi.spyOn(git, "getCurrentBranch").mockReturnValue("huerfana");
       vi.spyOn(git, "getDefaultBranch").mockReturnValue("master");
       vi.spyOn(git, "getMergeBase").mockReturnValue(null);
+      vi.spyOn(git, "hasCommits").mockReturnValue(true);
 
       expect(getStatusData().divergence).toBeNull();
+    });
+  });
+
+  describe("getBranchContextReport (informe de la tool MCP)", () => {
+    it("HEAD desacoplado: mensaje explicativo, nunca un error", () => {
+      vi.spyOn(git, "getCurrentBranch").mockReturnValue(null);
+
+      const report = getBranchContextReport();
+      expect(report).toContain("HEAD desacoplado");
+      expect(report).toContain("git checkout");
+    });
+
+    it("repo sin commits: lo dice claramente y no intenta leer el log", () => {
+      vi.spyOn(git, "getCurrentBranch").mockReturnValue("main");
+      vi.spyOn(git, "hasCommits").mockReturnValue(false);
+
+      const report = getBranchContextReport();
+      expect(report).toContain("Resumen guardado");
+      expect(report).toContain("no tiene commits todavía");
+    });
+
+    it("caso normal: resumen + divergencia + commits recientes", () => {
+      vi.spyOn(git, "getCurrentBranch").mockReturnValue("feature/x");
+      vi.spyOn(git, "hasCommits").mockReturnValue(true);
+      vi.spyOn(git, "getDefaultBranch").mockReturnValue("master");
+      vi.spyOn(git, "getMergeBase").mockReturnValue("abc123");
+      vi.spyOn(git, "getCommitCountSince").mockReturnValue(2);
+      vi.spyOn(git, "getDiffStat").mockReturnValue(" 1 file changed");
+      vi.spyOn(git, "getRecentCommits").mockReturnValue([
+        "abc123 feat: algo",
+        "def456 fix: otra cosa",
+      ]);
+      saveContext("feature/x", "Resumen manual de la rama");
+
+      const report = getBranchContextReport();
+      expect(report).toContain("Resumen manual de la rama");
+      expect(report).toContain('Divergencia respecto a "master"');
+      expect(report).toContain("2 commit(s)");
+      expect(report).toContain("- abc123 feat: algo");
+    });
+
+    it("sin resumen guardado: aviso claro en lugar de sección vacía", () => {
+      vi.spyOn(git, "getCurrentBranch").mockReturnValue("master");
+      vi.spyOn(git, "hasCommits").mockReturnValue(true);
+      vi.spyOn(git, "getDefaultBranch").mockReturnValue("master");
+      vi.spyOn(git, "getRecentCommits").mockReturnValue([]);
+
+      expect(getBranchContextReport()).toContain(
+        "Sin resumen guardado todavía",
+      );
     });
   });
 });
