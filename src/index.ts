@@ -1,96 +1,18 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
-import {
-  getCommitCountSince,
-  getCurrentBranch,
-  getDefaultBranch,
-  getDiffStat,
-  getMergeBase,
-  getRecentCommits,
-} from "./git.js";
-import { readContext, saveContext } from "./storage.js";
-
-const server = new McpServer({
-  name: "branchpoint",
-  version: "0.1.0",
-});
-
-server.registerTool(
-  "ping",
-  {
-    description: "Responde con Pong seguido del mensaje recibido.",
-    inputSchema: {
-      message: z.string().describe("Mensaje a devolver en la respuesta"),
-    },
-  },
-  async ({ message }) => {
-    return {
-      content: [{ type: "text", text: `Pong: ${message}` }],
-    };
-  },
-);
-
-server.registerTool(
-  "get_branch_context",
-  {
-    description:
-      "Devuelve el contexto combinado de la rama Git activa: resumen guardado manualmente, divergencia respecto a la rama principal (si aplica) y últimos commits.",
-    inputSchema: {},
-  },
-  async () => {
-    const branch = getCurrentBranch();
-    const manualSummary = readContext(branch) ?? "Sin resumen guardado todavía.";
-    const sections = [`## Resumen guardado\n${manualSummary}`];
-
-    const defaultBranch = getDefaultBranch();
-    if (defaultBranch && defaultBranch !== branch) {
-      const mergeBase = getMergeBase(defaultBranch, branch);
-      if (mergeBase) {
-        const commitCount = getCommitCountSince(mergeBase);
-        const diffStat = getDiffStat(mergeBase);
-        sections.push(
-          `## Divergencia respecto a "${defaultBranch}"\n${commitCount} commit(s) desde el punto de divergencia.\n\n\`\`\`\n${diffStat}\n\`\`\``,
-        );
-      }
-    }
-
-    const recentCommits = getRecentCommits(10);
-    if (recentCommits.length > 0) {
-      sections.push(
-        `## Últimos commits\n${recentCommits.map((line) => `- ${line}`).join("\n")}`,
-      );
-    }
-
-    return {
-      content: [{ type: "text", text: sections.join("\n\n") }],
-    };
-  },
-);
-
-server.registerTool(
-  "save_branch_context",
-  {
-    description:
-      "Guarda un resumen del contexto de desarrollo actual para la rama Git activa. Úsala cuando el usuario pida recordar o dejar constancia del estado, decisiones o progreso de la rama en la que se está trabajando.",
-    inputSchema: {
-      summary: z
-        .string()
-        .describe(
-          "Resumen del contexto de desarrollo actual para guardar en esta rama",
-        ),
-    },
-  },
-  async ({ summary }) => {
-    const branch = getCurrentBranch();
-    saveContext(branch, summary);
-    return {
-      content: [
-        { type: "text", text: `Contexto guardado para la rama "${branch}".` },
-      ],
-    };
-  },
-);
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
+// Dispatcher de modos. Los imports son dinámicos a propósito: en modo MCP
+// el proceso no debe llegar a cargar código CLI (ni sus dependencias, que
+// podrían escribir a stdout al importarse y romper el canal JSON-RPC).
+//
+// - Con argumentos           → CLI (Commander decide qué hacer con ellos).
+// - Sin argumentos, con TTY  → un humano escribió "branchpoint": modo interactivo.
+// - Sin argumentos, sin TTY  → un agente lanzó el proceso con pipes: servidor MCP.
+//   Este es el camino por defecto y el que se protege: stdout es JSON-RPC puro.
+if (process.argv.length > 2) {
+  const { runCli } = await import("./cli.js");
+  await runCli(process.argv);
+} else if (process.stdin.isTTY) {
+  const { runInteractive } = await import("./interactive.js");
+  await runInteractive();
+} else {
+  const { runMcpServer } = await import("./server.js");
+  await runMcpServer();
+}

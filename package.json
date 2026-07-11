@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "build": "tsdown --config-loader native",
-    "test": "vitest run"
+    "test": "pnpm build && vitest run"
   },
   "keywords": [
     "mcp",
