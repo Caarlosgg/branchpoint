@@ -80,6 +80,15 @@ usa `--config-loader native` para evitarlo.
    aprendiendo MCP en profundidad y quiere entender el razonamiento, no solo
    recibir el resultado.
 
+4. **Toda función `validate`/callback que se pase a librerías de UI
+   (@clack/prompts, Commander...) debe ser una función nombrada, exportada
+   desde un módulo testeable (`src/validators.ts`) y con tests propios —
+   nunca una arrow inline imposible de testear.** Origen: en la Fase 9 un
+   `validate` inline hizo `value.trim()` asumiendo string, pero
+   @clack/prompts entrega `undefined` con el campo vacío → crash con stack
+   trace en la cara del usuario. Los callbacks de UI son el punto ciego de
+   los tests; cada uno debe cubrir explícitamente `undefined`/vacío.
+
 ## Estado del proyecto
 
 - **Fase 0 — completada.** Entorno, stack y contexto documentado:

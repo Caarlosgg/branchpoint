@@ -4,6 +4,7 @@ import { formatDate } from "./cli.js";
 import { getCurrentBranch } from "./git.js";
 import { getBranchList, getContextData } from "./queries.js";
 import { saveContext } from "./storage.js";
+import { validateSummary } from "./validators.js";
 import { getVersion } from "./version.js";
 
 // Camino interactivo: aquí stdout es el producto, se imprime con libertad.
@@ -83,10 +84,7 @@ export async function runInteractive(): Promise<void> {
       const summary = await p.text({
         message: `Resumen para la rama ${pc.cyan(branch)}:`,
         placeholder: "Qué se está haciendo, decisiones tomadas, qué falta...",
-        validate: (value) =>
-          value.trim().length === 0
-            ? "El resumen no puede estar vacío."
-            : undefined,
+        validate: validateSummary,
       });
       if (p.isCancel(summary)) {
         break;
