@@ -260,4 +260,72 @@ usa `--config-loader native` para evitarlo.
     `cli-table3`, `boxen`, `@clack/prompts`.
   - `npm publish` de 0.2.0 NO ejecutado — lo hace el usuario a mano.
 
-- **Siguiente — Fase 9.** Por definir con el usuario.
+- **Fase 9 — completada.** Auditoría externa de robustez, código
+  autodocumentado y release comercial de la 0.2.0 (versión NO subida,
+  todo se pliega en la 0.2.0 aún no publicada):
+  - **Bloque 0 (bug crítico):** el modo interactivo crasheaba con stack
+    trace al guardar un resumen vacío — `@clack/prompts` entrega
+    `undefined` (no `""`) y el `validate` inline hacía `.trim()` sin
+    comprobarlo. Arreglado extrayendo la validación a
+    `src/validators.ts` (`validateSummary`, con `MAX_SUMMARY_CHARS =
+    50_000`), testeado explícitamente para `undefined`/`""`/espacios.
+    Regla 4 añadida (ver arriba). También arreglada la estética Unicode
+    inconsistente del modo interactivo en Windows Terminal (`@clack`
+    detecta soporte Unicode vía variables de entorno de forma
+    conservadora; `index.ts` planta `WT_SESSION` antes del import
+    dinámico de `interactive.js` cuando hace falta).
+  - **Bloque 1 (auditoría de robustez):** `git.ts` migrado de
+    `execSync` con strings interpolados a `execFileSync` con arrays
+    (cierra inyección de comandos vía nombres de rama con backticks o
+    `$(...)`). `getCurrentBranch()` devuelve `string | null` (HEAD
+    desacoplado ya no se confunde con cadena vacía); `hasCommits()`
+    nueva para repos recién `git init`. Todos los caminos (MCP, CLI,
+    interactivo) degradan con mensaje claro en detached HEAD y repo sin
+    commits, nunca crashean. `storage.ts` usa `git rev-parse
+    --git-common-dir` (no `<repoRoot>/.git` a mano) para funcionar en
+    worktrees/submódulos, donde `.git` es un fichero puntero. Nombres
+    de rama hostiles a Windows (`CON`, `NUL`, terminados en punto o
+    espacio) se sanitizan con percent-encoding determinista y
+    reversible (`sanitizeBranchForFs`/`decodeBranchFromFs`), más una
+    comprobación defensiva de contención de rutas en
+    `getContextPath()`. `save_branch_context` valida resumen vacío y
+    límite de tamaño reusando `validators.ts`. Biome integrado de
+    verdad (`biome.json`, scripts `lint`/`format`, paso `Lint` en CI
+    antes del build).
+  - **Bloque 2 (código autodocumentado):** todo `src/` documentado en
+    inglés (cabeceras de fichero, JSDoc en funciones exportadas,
+    comentarios inline solo donde el porqué no es obvio). Creado
+    `ARCHITECTURE.md` en inglés: diagrama de flujo, tabla de
+    responsabilidad por fichero, stack con el porqué de cada pieza,
+    filosofía de testing, registro de decisiones no obvias.
+  - **Bloque 3 (README global):** `README.md` reescrito en inglés como
+    documento principal (audiencia global de npm/GitHub);
+    `README.es.md` con la versión española completa, enlazados entre
+    sí. Configuración MCP documentada por cliente (Claude Code, Claude
+    Desktop, Cursor, Cline, VS Code — investigada y verificada, con
+    nota honesta para clientes no listados). Traducidas a inglés las
+    descripciones de las tools MCP, el `--help` de Commander y los
+    mensajes del modo interactivo (las tools las leen LLMs de todo el
+    mundo). `CLAUDE.md` se queda en español (documento interno).
+  - **Bloque 4 (limpieza):** borrado el contexto residual local de la
+    rama `test/aislamiento` (Fase 2, rama ya no existe) del almacén de
+    este repo — cambio de estado local, no committeado. Detección de
+    contextos huérfanos NO implementada esta fase; queda anotada en el
+    roadmap de ambos README como mejora futura.
+  - **Bloque 5 (verificación final):** `pnpm lint && pnpm build &&
+    pnpm test` en verde (51 tests). `pnpm pack --dry-run` confirma
+    tarball con `dist/`, `README.md`, `README.es.md`, `CHANGELOG.md`,
+    `LICENSE`, `package.json` — `ARCHITECTURE.md` deliberadamente
+    fuera (documento para quien toca el código, no para quien solo
+    instala el paquete; ya es público en GitHub). Simulación de
+    usuario nuevo desde directorio temporal fuera del repo: los tres
+    modos (subcomandos, `--json`, handshake MCP crudo por pipes) y los
+    casos límite auditados (detached HEAD, repo sin commits) verificados
+    contra el binario compilado real, no solo contra tests unitarios.
+  - Reglas nuevas adoptadas de forma permanente: validators testeables
+    (regla 4), sanitización determinista de nombres de rama, uso de
+    `git-common-dir` en vez de `<repoRoot>/.git` a mano.
+  - `npm publish` de 0.2.0 sigue SIN ejecutar — pendiente de prueba
+    manual del usuario.
+
+- **Siguiente — Fase 10.** Por definir con el usuario.
