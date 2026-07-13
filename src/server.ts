@@ -7,10 +7,15 @@ import { saveContext } from "./storage.js";
 import { validateSummary } from "./validators.js";
 import { getVersion } from "./version.js";
 
-// Camino MCP: stdout es EXCLUSIVAMENTE el canal JSON-RPC del protocolo.
-// Nada en este fichero (ni en lo que importa) puede escribir a stdout;
-// cualquier log de depuración iría a stderr.
+/**
+ * MCP server entry point, one tool registration per feature. stdout is
+ * EXCLUSIVELY the protocol's JSON-RPC channel here: nothing in this file
+ * (or anything it imports) may write to stdout outside the SDK's own
+ * transport — any debug logging would have to go to stderr instead.
+ */
 
+/** Builds and connects the MCP server over stdio. Resolves once the
+ * transport handshake completes; the process then blocks on stdin. */
 export async function runMcpServer(): Promise<void> {
   const server = new McpServer({
     name: "branchpoint",
@@ -40,9 +45,9 @@ export async function runMcpServer(): Promise<void> {
       inputSchema: {},
     },
     async () => {
-      // Estados degradados (HEAD desacoplado, repo sin commits) devuelven
-      // texto explicativo como contenido normal, no un error de tool: el
-      // agente puede leerlos y actuar en consecuencia.
+      // Degraded states (detached HEAD, repo with no commits) come back
+      // as explanatory text in normal content, not a tool error: the
+      // agent can read them and decide what to do next.
       return {
         content: [{ type: "text", text: getBranchContextReport() }],
       };

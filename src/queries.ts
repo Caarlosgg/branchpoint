@@ -16,34 +16,40 @@ import {
   readContext,
 } from "./storage.js";
 
-// Capa de datos: funciones puras que recogen información y devuelven
-// objetos planos tipados (o markdown, en el caso del informe MCP). Aquí
-// no se imprime nada; la presentación vive en cli.ts / interactive.ts /
-// server.ts, que consumen estas funciones.
+/**
+ * Data layer shared by every presentation surface (MCP tools, CLI,
+ * interactive mode): pure functions that gather information from git.ts
+ * and storage.ts and return plain typed objects (or, for the MCP report,
+ * markdown text). Nothing in this file prints anything — presentation
+ * lives in cli.ts, interactive.ts and server.ts, which all consume these
+ * functions instead of duplicating the underlying logic.
+ */
 
 export interface StatusData {
-  /** Rama activa, o null si HEAD está desacoplado (detached). */
+  /** Active branch, or null if HEAD is detached. */
   branch: string | null;
   hasContext: boolean;
-  /** Fecha ISO de última modificación del resumen, o null si no hay. */
+  /** ISO timestamp of the last context update, or null if none saved. */
   updatedAt: string | null;
   defaultBranch: string | null;
-  /** True si el repo tiene al menos un commit (false recién hecho git init). */
+  /** False right after `git init`, before the first commit exists. */
   hasCommits: boolean;
-  /** Null si no hay rama principal, estamos en ella o no hay historia común. */
+  /** Null if there's no default branch, we're already on it, or the
+   * branches share no history. */
   divergence: { baseBranch: string; commitCount: number } | null;
 }
 
 export interface BranchEntry {
   branch: string;
-  /** Fecha ISO de última modificación del resumen. */
+  /** ISO timestamp of the last context update. */
   updatedAt: string;
-  /** Primeras palabras del resumen, en una sola línea. */
+  /** First few words of the summary, collapsed to a single line. */
   preview: string;
 }
 
 export interface ContextData {
-  /** Rama consultada, o null si se pidió la activa y HEAD está desacoplado. */
+  /** Branch queried, or null when the active branch was requested and
+   * HEAD is detached. */
   branch: string | null;
   content: string | null;
   updatedAt: string | null;
@@ -61,6 +67,8 @@ function makePreview(content: string): string {
   return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`;
 }
 
+/** Snapshot of the active branch's context state, used by `branchpoint
+ * status` and the interactive menu header. */
 export function getStatusData(): StatusData {
   const branch = getCurrentBranch();
   const repoHasCommits = hasCommits();
@@ -104,6 +112,7 @@ export function getStatusData(): StatusData {
   };
 }
 
+/** All saved contexts across every branch, newest first. */
 export function getBranchList(): BranchEntry[] {
   const dir = getBranchpointDir();
   if (!existsSync(dir)) {
@@ -119,9 +128,9 @@ export function getBranchList(): BranchEntry[] {
       continue;
     }
     const fullPath = join(dirent.parentPath, dirent.name);
-    // La ruta relativa al almacén, sin ".md", es el nombre de rama
-    // SANITIZADO (ver storage.ts): las subcarpetas reconstruyen ramas con
-    // "/" y el decode deshace el escape de caracteres hostiles a Windows.
+    // The path relative to the store, minus ".md", is the SANITIZED
+    // branch name (see storage.ts): subfolders reconstruct "/" in branch
+    // names, and decoding undoes the Windows-hostile-character escaping.
     const encoded = relative(dir, fullPath)
       .slice(0, -".md".length)
       .split(sep)
@@ -136,6 +145,7 @@ export function getBranchList(): BranchEntry[] {
   return entries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
+/** Full saved context for a branch (defaults to the active one). */
 export function getContextData(branch?: string): ContextData {
   const resolvedBranch = branch ?? getCurrentBranch();
   if (resolvedBranch === null) {
@@ -153,11 +163,11 @@ export function getContextData(branch?: string): ContextData {
 }
 
 /**
- * Informe markdown combinado que devuelve la tool MCP get_branch_context:
- * resumen guardado + divergencia respecto a la rama principal (si aplica)
- * + últimos commits. Vive aquí (y no en server.ts) para ser testeable sin
- * levantar un servidor MCP. Los estados degradados (HEAD desacoplado,
- * repo sin commits) devuelven texto explicativo, nunca lanzan.
+ * Combined markdown report returned by the `get_branch_context` MCP tool:
+ * saved summary + divergence from the default branch (if applicable) +
+ * recent commits. Lives here (not in server.ts) so it's testable without
+ * spinning up an MCP server. Degraded states (detached HEAD, repository
+ * with no commits) return explanatory text, never throw.
  */
 export function getBranchContextReport(): string {
   const branch = getCurrentBranch();

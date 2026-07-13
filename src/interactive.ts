@@ -7,9 +7,12 @@ import { saveContext } from "./storage.js";
 import { validateSummary } from "./validators.js";
 import { getVersion } from "./version.js";
 
-// Camino interactivo: aquí stdout es el producto, se imprime con libertad.
-// Es otra piel sobre la misma lógica: consume queries.ts y storage.ts,
-// no duplica nada.
+/**
+ * The interactive menu launched when a human runs `branchpoint` with no
+ * arguments in a terminal. stdout is the product here, same as cli.ts —
+ * this is just another skin over the same logic: it consumes queries.ts
+ * and storage.ts directly and duplicates none of their behavior.
+ */
 
 function renderContext(branch: string): string {
   const data = getContextData(branch);
@@ -46,9 +49,9 @@ function renderBranchList(): string {
 }
 
 /**
- * Punto de entrada del modo interactivo. Envuelve el bucle real en un
- * try/catch: pase lo que pase (git desaparece a mitad de sesión, disco
- * lleno...) el usuario ve un mensaje claro, jamás un volcado de Node.
+ * Interactive mode entry point. Wraps the real loop in a try/catch:
+ * whatever happens (git disappears mid-session, disk fills up...) the
+ * user sees a clear message, never a raw Node stack trace.
  */
 export async function runInteractive(): Promise<void> {
   try {
@@ -76,7 +79,7 @@ async function interactiveLoop(): Promise<void> {
   }
 
   if (branch === null) {
-    // Estado válido de git, no un error: mensaje neutro y salida limpia.
+    // A valid git state, not an error: neutral message and clean exit.
     p.outro(
       "HEAD desacoplado: no hay rama activa. Haz checkout de una rama (git checkout <rama>) y vuelve a lanzar branchpoint.",
     );
@@ -94,8 +97,8 @@ async function interactiveLoop(): Promise<void> {
       ],
     });
 
-    // Ctrl+C (o Esc) en cualquier punto: salida limpia, sin stack trace,
-    // exit code 0 — cancelar no es un error.
+    // Ctrl+C (or Esc) at any point: clean exit, no stack trace, exit
+    // code 0 — canceling is not an error.
     if (p.isCancel(action) || action === "exit") {
       break;
     }

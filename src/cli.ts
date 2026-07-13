@@ -6,9 +6,14 @@ import { GitError } from "./git.js";
 import { getBranchList, getContextData, getStatusData } from "./queries.js";
 import { getVersion } from "./version.js";
 
-// Camino CLI: aquí stdout es el producto, se imprime con libertad.
-// Esta capa solo presenta; los datos vienen de queries.ts.
+/**
+ * The human-facing CLI: Commander wiring plus presentation (boxen,
+ * cli-table3, picocolors). stdout is the product here — it's printed to
+ * freely, unlike the MCP path. This layer only formats; all data comes
+ * from queries.ts, never computed here.
+ */
 
+/** Formats an ISO timestamp as `YYYY-MM-DD HH:mm` in local time. */
 export function formatDate(iso: string): string {
   const date = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -16,10 +21,10 @@ export function formatDate(iso: string): string {
 }
 
 /**
- * Ejecuta una acción que necesita un repositorio Git. Los errores SIEMPRE
- * salen como mensaje accionable por stderr (qué hacer, no solo qué falló)
- * con exit code 1 — jamás un stack trace. stdout queda limpio para que
- * `--json | jq` no reciba basura.
+ * Runs an action that needs a git repository. Errors ALWAYS surface as an
+ * actionable stderr message (what to do, not just what failed) with exit
+ * code 1 — never a raw stack trace. stdout stays clean so `--json | jq`
+ * never receives garbage mixed into the pipeline.
  */
 function withRepo(action: () => void): void {
   try {
@@ -46,8 +51,8 @@ function printStatus(json: boolean): void {
     return;
   }
 
-  // HEAD desacoplado (checkout de commit suelto, rebase a medias) no es
-  // un error: se informa del estado y de cómo salir de él.
+  // Detached HEAD (checkout of a bare commit, mid-rebase) is not an
+  // error: report the state and how to get out of it.
   if (data.branch === null) {
     console.log(
       boxen(
@@ -74,8 +79,8 @@ function printStatus(json: boolean): void {
       `${pc.bold("Contexto:")}    ${pc.green("guardado")} ${pc.dim(`(actualizado ${formatDate(data.updatedAt)})`)}`,
     );
   } else {
-    // Sin contexto NO es un error: es el estado inicial normal. Gris
-    // neutro e invitación a guardar, nunca rojo.
+    // No saved context is NOT an error: it's the normal initial state
+    // for any new user. Neutral gray with an invitation, never red.
     lines.push(
       `${pc.bold("Contexto:")}    ${pc.dim("aún no hay resumen guardado para esta rama")}`,
     );
@@ -120,8 +125,9 @@ function printList(json: boolean): void {
   const table = new Table({
     head: [pc.cyan("Rama"), pc.cyan("Actualizado"), pc.cyan("Resumen")],
     wordWrap: true,
-    // cli-table3 no respeta NO_COLOR por sí solo: se apaga el color del
-    // borde a mano cuando el entorno no soporta color (pipes, CI).
+    // cli-table3 doesn't honor NO_COLOR on its own: the border color is
+    // switched off by hand whenever the environment doesn't support
+    // color (pipes, CI), so `branchpoint list | ...` stays ANSI-free.
     style: { head: [], border: pc.isColorSupported ? ["grey"] : [] },
   });
   for (const entry of entries) {
@@ -159,6 +165,8 @@ function printContext(branch: string | undefined, json: boolean): void {
   }
 }
 
+/** Builds the Commander program with all subcommands wired up. Exported
+ * separately from `runCli` so tests can inspect it without parsing argv. */
 export function buildProgram(): Command {
   const program = new Command();
 
@@ -203,6 +211,8 @@ export function buildProgram(): Command {
   return program;
 }
 
+/** Parses `argv` and runs the matching subcommand. Entry point used by
+ * the dispatcher whenever the process is invoked with arguments. */
 export async function runCli(argv: string[]): Promise<void> {
   await buildProgram().parseAsync(argv);
 }

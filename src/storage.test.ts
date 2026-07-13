@@ -111,7 +111,9 @@ describe("storage", () => {
     it("una 'rama' que empieza por / no puede escapar del almacén", () => {
       // getContextPath también recibe argumentos CLI arbitrarios
       // (branchpoint context <lo-que-sea>), no solo refs validadas por git.
-      expect(() => getContextPath("/etc/passwd")).toThrow(/no válido/);
+      expect(() => getContextPath("/etc/passwd")).toThrow(
+        /Invalid branch name/,
+      );
     });
 
     it("los intentos de traversal con .. quedan neutralizados dentro del almacén", () => {
