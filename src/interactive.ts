@@ -18,11 +18,11 @@ function renderContext(branch: string): string {
   const data = getContextData(branch);
   if (data.content === null) {
     return pc.dim(
-      "Esta rama no tiene contexto guardado todavía. Puedes guardar el primero desde el menú.",
+      "This branch has no saved context yet. You can save the first one from the menu.",
     );
   }
   const header = data.updatedAt
-    ? pc.dim(`Actualizado ${formatDate(data.updatedAt)}\n\n`)
+    ? pc.dim(`Updated ${formatDate(data.updatedAt)}\n\n`)
     : "";
   return (
     header +
@@ -37,7 +37,7 @@ function renderBranchList(): string {
   const entries = getBranchList();
   if (entries.length === 0) {
     return pc.dim(
-      "Aún no hay contextos guardados en este repositorio. Puedes guardar el primero desde el menú.",
+      "No saved contexts in this repository yet. You can save the first one from the menu.",
     );
   }
   return entries
@@ -58,7 +58,7 @@ export async function runInteractive(): Promise<void> {
     await interactiveLoop();
   } catch (error) {
     p.cancel(
-      `Algo ha fallado: ${error instanceof Error ? error.message : String(error)}`,
+      `Something went wrong: ${error instanceof Error ? error.message : String(error)}`,
     );
     process.exitCode = 1;
   }
@@ -72,7 +72,7 @@ async function interactiveLoop(): Promise<void> {
     branch = getCurrentBranch();
   } catch {
     p.cancel(
-      "Branchpoint necesita un repositorio Git. Muévete a la carpeta de tu proyecto, o inicializa uno con: git init",
+      "Branchpoint needs a Git repository. Move to your project's folder, or initialize one with: git init",
     );
     process.exitCode = 1;
     return;
@@ -81,19 +81,19 @@ async function interactiveLoop(): Promise<void> {
   if (branch === null) {
     // A valid git state, not an error: neutral message and clean exit.
     p.outro(
-      "HEAD desacoplado: no hay rama activa. Haz checkout de una rama (git checkout <rama>) y vuelve a lanzar branchpoint.",
+      "Detached HEAD: there's no active branch. Check out a branch (git checkout <branch>) and launch branchpoint again.",
     );
     return;
   }
 
   while (true) {
     const action = await p.select({
-      message: `Rama activa: ${pc.cyan(branch)} — ¿qué quieres hacer?`,
+      message: `Active branch: ${pc.cyan(branch)} — what would you like to do?`,
       options: [
-        { value: "context", label: "Ver contexto de esta rama" },
-        { value: "list", label: "Ver todas las ramas guardadas" },
-        { value: "save", label: "Guardar un resumen ahora" },
-        { value: "exit", label: "Salir" },
+        { value: "context", label: "View this branch's context" },
+        { value: "list", label: "View every saved branch" },
+        { value: "save", label: "Save a summary now" },
+        { value: "exit", label: "Exit" },
       ],
     });
 
@@ -106,20 +106,20 @@ async function interactiveLoop(): Promise<void> {
     if (action === "context") {
       p.note(renderContext(branch), pc.cyan(branch));
     } else if (action === "list") {
-      p.note(renderBranchList(), "Ramas con contexto");
+      p.note(renderBranchList(), "Branches with context");
     } else if (action === "save") {
       const summary = await p.text({
-        message: `Resumen para la rama ${pc.cyan(branch)}:`,
-        placeholder: "Qué se está haciendo, decisiones tomadas, qué falta...",
+        message: `Summary for branch ${pc.cyan(branch)}:`,
+        placeholder: "What's being worked on, decisions made, what's left...",
         validate: validateSummary,
       });
       if (p.isCancel(summary)) {
         break;
       }
       saveContext(branch, summary);
-      p.log.success(`Contexto guardado para la rama "${branch}".`);
+      p.log.success(`Context saved for branch "${branch}".`);
     }
   }
 
-  p.outro("¡Hasta luego! Tu contexto queda guardado en .git/branchpoint/");
+  p.outro("See you later! Your context is saved under .git/branchpoint/");
 }

@@ -25,9 +25,9 @@ export async function runMcpServer(): Promise<void> {
   server.registerTool(
     "ping",
     {
-      description: "Responde con Pong seguido del mensaje recibido.",
+      description: "Replies with Pong followed by the received message.",
       inputSchema: {
-        message: z.string().describe("Mensaje a devolver en la respuesta"),
+        message: z.string().describe("Message to echo back in the response"),
       },
     },
     async ({ message }) => {
@@ -41,7 +41,7 @@ export async function runMcpServer(): Promise<void> {
     "get_branch_context",
     {
       description:
-        "Devuelve el contexto combinado de la rama Git activa: resumen guardado manualmente, divergencia respecto a la rama principal (si aplica) y últimos commits.",
+        "Returns the combined context for the active Git branch: manually saved summary, divergence from the default branch (if applicable), and recent commits.",
       inputSchema: {},
     },
     async () => {
@@ -58,12 +58,12 @@ export async function runMcpServer(): Promise<void> {
     "save_branch_context",
     {
       description:
-        "Guarda un resumen del contexto de desarrollo actual para la rama Git activa. Úsala cuando el usuario pida recordar o dejar constancia del estado, decisiones o progreso de la rama en la que se está trabajando.",
+        "Saves a summary of the current development context for the active Git branch. Use it when the user asks to remember or record the state, decisions, or progress of the branch being worked on.",
       inputSchema: {
         summary: z
           .string()
           .describe(
-            "Resumen del contexto de desarrollo actual para guardar en esta rama",
+            "Summary of the current development context to save for this branch",
           ),
       },
     },
@@ -83,7 +83,7 @@ export async function runMcpServer(): Promise<void> {
           content: [
             {
               type: "text",
-              text: "HEAD desacoplado (detached): no hay rama activa a la que asociar el resumen. Haz checkout de una rama y vuelve a intentarlo.",
+              text: "Detached HEAD: there's no active branch to attach the summary to. Check out a branch and try again.",
             },
           ],
         };
@@ -92,7 +92,7 @@ export async function runMcpServer(): Promise<void> {
       saveContext(branch, summary);
       return {
         content: [
-          { type: "text", text: `Contexto guardado para la rama "${branch}".` },
+          { type: "text", text: `Context saved for branch "${branch}".` },
         ],
       };
     },

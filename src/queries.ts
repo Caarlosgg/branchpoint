@@ -172,16 +172,14 @@ export function getContextData(branch?: string): ContextData {
 export function getBranchContextReport(): string {
   const branch = getCurrentBranch();
   if (branch === null) {
-    return "HEAD desacoplado (detached): no hay rama activa, así que no hay contexto de rama que leer. Haz checkout de una rama (`git checkout <rama>`) y vuelve a intentarlo.";
+    return "Detached HEAD: there's no active branch, so there's no branch context to read. Check out a branch (`git checkout <branch>`) and try again.";
   }
 
-  const manualSummary = readContext(branch) ?? "Sin resumen guardado todavía.";
-  const sections = [`## Resumen guardado\n${manualSummary}`];
+  const manualSummary = readContext(branch) ?? "No summary saved yet.";
+  const sections = [`## Saved summary\n${manualSummary}`];
 
   if (!hasCommits()) {
-    sections.push(
-      "## Estado del repositorio\nEl repositorio no tiene commits todavía.",
-    );
+    sections.push("## Repository state\nThe repository has no commits yet.");
     return sections.join("\n\n");
   }
 
@@ -192,7 +190,7 @@ export function getBranchContextReport(): string {
       const commitCount = getCommitCountSince(mergeBase);
       const diffStat = getDiffStat(mergeBase);
       sections.push(
-        `## Divergencia respecto a "${defaultBranch}"\n${commitCount} commit(s) desde el punto de divergencia.\n\n\`\`\`\n${diffStat}\n\`\`\``,
+        `## Divergence from "${defaultBranch}"\n${commitCount} commit(s) since the divergence point.\n\n\`\`\`\n${diffStat}\n\`\`\``,
       );
     }
   }
@@ -200,7 +198,7 @@ export function getBranchContextReport(): string {
   const recentCommits = getRecentCommits(10);
   if (recentCommits.length > 0) {
     sections.push(
-      `## Últimos commits\n${recentCommits.map((line) => `- ${line}`).join("\n")}`,
+      `## Recent commits\n${recentCommits.map((line) => `- ${line}`).join("\n")}`,
     );
   }
 

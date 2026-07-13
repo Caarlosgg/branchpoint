@@ -29,10 +29,10 @@ export const MAX_SUMMARY_CHARS = 50_000;
  */
 export function validateSummary(value: string | undefined): string | undefined {
   if (value === undefined || value.trim().length === 0) {
-    return "El resumen no puede estar vacío. Escribe qué se está haciendo en esta rama.";
+    return "The summary can't be empty. Write what's being worked on in this branch.";
   }
   if (value.length > MAX_SUMMARY_CHARS) {
-    return `El resumen supera el límite de ${MAX_SUMMARY_CHARS} caracteres (tiene ${value.length}). Guarda un resumen, no un volcado: condensa lo esencial.`;
+    return `The summary exceeds the ${MAX_SUMMARY_CHARS}-character limit (it has ${value.length}). Save a summary, not a dump: condense the essentials.`;
   }
   return undefined;
 }

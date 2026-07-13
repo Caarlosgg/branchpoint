@@ -185,7 +185,7 @@ describe("queries", () => {
       vi.spyOn(git, "getCurrentBranch").mockReturnValue(null);
 
       const report = getBranchContextReport();
-      expect(report).toContain("HEAD desacoplado");
+      expect(report).toContain("Detached HEAD");
       expect(report).toContain("git checkout");
     });
 
@@ -194,8 +194,8 @@ describe("queries", () => {
       vi.spyOn(git, "hasCommits").mockReturnValue(false);
 
       const report = getBranchContextReport();
-      expect(report).toContain("Resumen guardado");
-      expect(report).toContain("no tiene commits todavía");
+      expect(report).toContain("Saved summary");
+      expect(report).toContain("no commits yet");
     });
 
     it("caso normal: resumen + divergencia + commits recientes", () => {
@@ -213,7 +213,7 @@ describe("queries", () => {
 
       const report = getBranchContextReport();
       expect(report).toContain("Resumen manual de la rama");
-      expect(report).toContain('Divergencia respecto a "master"');
+      expect(report).toContain('Divergence from "master"');
       expect(report).toContain("2 commit(s)");
       expect(report).toContain("- abc123 feat: algo");
     });
@@ -224,9 +224,7 @@ describe("queries", () => {
       vi.spyOn(git, "getDefaultBranch").mockReturnValue("master");
       vi.spyOn(git, "getRecentCommits").mockReturnValue([]);
 
-      expect(getBranchContextReport()).toContain(
-        "Sin resumen guardado todavía",
-      );
+      expect(getBranchContextReport()).toContain("No summary saved yet");
     });
   });
 });

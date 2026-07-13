@@ -32,11 +32,11 @@ function withRepo(action: () => void): void {
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     if (error instanceof GitError) {
-      console.error(pc.red("✖ Branchpoint necesita un repositorio Git."));
+      console.error(pc.red("✖ Branchpoint needs a Git repository."));
       console.error(
-        "  Muévete a la carpeta de tu proyecto, o inicializa uno con: git init",
+        "  Move to your project's folder, or initialize one with: git init",
       );
-      console.error(pc.dim(`  Detalle: ${detail}`));
+      console.error(pc.dim(`  Detail: ${detail}`));
     } else {
       console.error(pc.red(`✖ ${detail}`));
     }
@@ -56,7 +56,7 @@ function printStatus(json: boolean): void {
   if (data.branch === null) {
     console.log(
       boxen(
-        `${pc.bold("Rama activa:")}  ${pc.dim("(ninguna — HEAD desacoplado)")}\n${pc.dim("Haz checkout de una rama (git checkout <rama>) para usar el contexto por rama.")}`,
+        `${pc.bold("Active branch:")}  ${pc.dim("(none — detached HEAD)")}\n${pc.dim("Check out a branch (git checkout <branch>) to use per-branch context.")}`,
         {
           title: "branchpoint",
           titleAlignment: "center",
@@ -70,29 +70,29 @@ function printStatus(json: boolean): void {
     return;
   }
 
-  const lines = [`${pc.bold("Rama activa:")}  ${pc.cyan(data.branch)}`];
+  const lines = [`${pc.bold("Active branch:")}  ${pc.cyan(data.branch)}`];
   if (!data.hasCommits) {
-    lines.push(pc.dim("El repositorio no tiene commits todavía."));
+    lines.push(pc.dim("The repository has no commits yet."));
   }
   if (data.hasContext && data.updatedAt) {
     lines.push(
-      `${pc.bold("Contexto:")}    ${pc.green("guardado")} ${pc.dim(`(actualizado ${formatDate(data.updatedAt)})`)}`,
+      `${pc.bold("Context:")}        ${pc.green("saved")} ${pc.dim(`(updated ${formatDate(data.updatedAt)})`)}`,
     );
   } else {
     // No saved context is NOT an error: it's the normal initial state
     // for any new user. Neutral gray with an invitation, never red.
     lines.push(
-      `${pc.bold("Contexto:")}    ${pc.dim("aún no hay resumen guardado para esta rama")}`,
+      `${pc.bold("Context:")}        ${pc.dim("no summary saved for this branch yet")}`,
     );
     lines.push(
       pc.dim(
-        `Guarda el primero ejecutando ${pc.bold("branchpoint")} sin argumentos (modo interactivo).`,
+        `Save the first one by running ${pc.bold("branchpoint")} with no arguments (interactive mode).`,
       ),
     );
   }
   if (data.divergence) {
     lines.push(
-      `${pc.bold("Divergencia:")} ${data.divergence.commitCount} commit(s) desde el punto común con ${pc.cyan(data.divergence.baseBranch)}`,
+      `${pc.bold("Divergence:")}     ${data.divergence.commitCount} commit(s) since the common point with ${pc.cyan(data.divergence.baseBranch)}`,
     );
   }
 
@@ -117,13 +117,13 @@ function printList(json: boolean): void {
 
   if (entries.length === 0) {
     console.log(
-      `\nAún no hay contextos guardados. Guarda el primero ejecutando ${pc.bold("branchpoint")} sin argumentos (modo interactivo), o pide a tu agente que use la tool ${pc.bold("save_branch_context")}.\n`,
+      `\nNo saved contexts yet. Save the first one by running ${pc.bold("branchpoint")} with no arguments (interactive mode), or have your agent use the ${pc.bold("save_branch_context")} tool.\n`,
     );
     return;
   }
 
   const table = new Table({
-    head: [pc.cyan("Rama"), pc.cyan("Actualizado"), pc.cyan("Resumen")],
+    head: [pc.cyan("Branch"), pc.cyan("Updated"), pc.cyan("Summary")],
     wordWrap: true,
     // cli-table3 doesn't honor NO_COLOR on its own: the border color is
     // switched off by hand whenever the environment doesn't support
@@ -145,20 +145,20 @@ function printContext(branch: string | undefined, json: boolean): void {
 
   if (data.branch === null) {
     console.log(
-      `HEAD desacoplado: no hay rama activa. Haz checkout de una rama (${pc.bold("git checkout <rama>")}) o indica una: ${pc.bold("branchpoint context <rama>")}.`,
+      `Detached HEAD: there's no active branch. Check out a branch (${pc.bold("git checkout <branch>")}) or name one: ${pc.bold("branchpoint context <branch>")}.`,
     );
     return;
   }
 
   if (data.content === null) {
     console.log(
-      `La rama ${pc.cyan(data.branch)} no tiene contexto guardado todavía. Guarda el primero ejecutando ${pc.bold("branchpoint")} sin argumentos (modo interactivo).`,
+      `Branch ${pc.cyan(data.branch)} has no saved context yet. Save the first one by running ${pc.bold("branchpoint")} with no arguments (interactive mode).`,
     );
     return;
   }
 
   console.log(
-    `${pc.bold(pc.cyan(data.branch))}${data.updatedAt ? pc.dim(` — actualizado ${formatDate(data.updatedAt)}`) : ""}\n`,
+    `${pc.bold(pc.cyan(data.branch))}${data.updatedAt ? pc.dim(` — updated ${formatDate(data.updatedAt)}`) : ""}\n`,
   );
   for (const line of data.content.split("\n")) {
     console.log(line.startsWith("#") ? pc.bold(line) : line);
@@ -173,18 +173,18 @@ export function buildProgram(): Command {
   program
     .name("branchpoint")
     .description(
-      "Contexto persistente por rama Git: servidor MCP para agentes IA y CLI para humanos.\nSin argumentos y con terminal: modo interactivo. Sin argumentos y con pipes: servidor MCP.",
+      "Persistent per-branch Git context: an MCP server for AI agents and a CLI for humans.\nNo arguments in a terminal: interactive mode. No arguments over pipes: MCP server.",
     )
-    .version(getVersion(), "-V, --version", "muestra la versión")
-    .helpOption("-h, --help", "muestra esta ayuda")
+    .version(getVersion(), "-V, --version", "show the version number")
+    .helpOption("-h, --help", "show this help")
     .helpCommand(false);
 
   program
     .command("status")
     .description(
-      "muestra la rama activa, si tiene contexto guardado y su divergencia",
+      "show the active branch, whether it has saved context, and its divergence",
     )
-    .option("--json", "salida JSON cruda, sin colores ni cajas")
+    .option("--json", "raw JSON output, no colors or boxes")
     .action((options: { json?: boolean }) => {
       withRepo(() => printStatus(options.json ?? false));
     });
@@ -192,18 +192,18 @@ export function buildProgram(): Command {
   program
     .command("list")
     .description(
-      "lista todas las ramas con contexto guardado, la más reciente primero",
+      "list every branch with saved context, most recently updated first",
     )
-    .option("--json", "salida JSON cruda, sin colores ni tabla")
+    .option("--json", "raw JSON output, no colors or table")
     .action((options: { json?: boolean }) => {
       withRepo(() => printList(options.json ?? false));
     });
 
   program
     .command("context")
-    .argument("[branch]", "rama a consultar (por defecto, la activa)")
-    .description("muestra el contexto completo guardado para una rama")
-    .option("--json", "salida JSON cruda, sin colores")
+    .argument("[branch]", "branch to inspect (defaults to the active one)")
+    .description("show the full saved context for a branch")
+    .option("--json", "raw JSON output, no colors")
     .action((branch: string | undefined, options: { json?: boolean }) => {
       withRepo(() => printContext(branch, options.json ?? false));
     });

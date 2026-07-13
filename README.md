@@ -1,121 +1,212 @@
 # Branchpoint
 
+**[English](README.md) | [Español](README.es.md)**
+
 ![CI](https://github.com/Caarlosgg/branchpoint/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Node](https://img.shields.io/badge/node-%3E%3D22-brightgreen)
 
-Branchpoint da memoria persistente por rama Git a tu flujo de trabajo: los
-agentes de IA la usan como servidor MCP para no mezclar contexto entre ramas,
-y tú la usas como CLI para ver de un vistazo qué se estaba haciendo en cada
-rama. Un solo binario, dos caras: el mismo `.git/branchpoint/` alimenta a ambas.
+Branchpoint gives your Git workflow persistent memory, per branch. AI coding
+agents use it as an MCP server so they stop mixing up context between
+branches; you use it as a CLI to see at a glance what was going on in each
+branch. One binary, two faces: the same `.git/branchpoint/` store feeds
+both.
 
 ```bash
-# Para tu agente (Claude Code):
+# For your agent (Claude Code):
 claude mcp add branchpoint -- npx -y branchpoint
 
-# Para ti:
+# For you:
 npx branchpoint status
 ```
 
-## El problema
+## The problem
 
-Cuando un agente IA (Claude Code, Cursor, Cline...) trabaja en un
-repositorio con varias ramas activas, no tiene memoria de qué se decidió o
-se hizo en cada rama. Esto provoca dos síntomas habituales:
+When an AI coding agent (Claude Code, Cursor, Cline...) works in a
+repository with several active branches, it has no memory of what was
+decided or done on each one. That causes two familiar symptoms:
 
-- **Alucinación cruzada de ramas**: el agente mezcla contexto de código o
-  decisiones de una rama con el trabajo actual en otra.
-- **Desperdicio de tokens**: el agente tiene que re-explorar y re-explicar
-  el estado del proyecto en cada sesión porque no hay memoria persistente
-  ligada a la rama.
+- **Cross-branch hallucination**: the agent mixes code context or decisions
+  from one branch into the current work on another.
+- **Wasted tokens**: the agent has to re-explore and re-explain the state
+  of the project every session, because nothing persisted was tied to the
+  branch.
 
-Y el mismo problema lo tienes tú al volver a una rama tras una semana:
-¿en qué se había quedado esto?
+And you hit the same problem yourself coming back to a branch a week
+later: what was this even about?
 
-## Cómo funciona
+## How it works
 
-Branchpoint detecta la rama Git activa y persiste resúmenes de contexto por
-rama en `.git/branchpoint/<rama>.md`. Al leer el contexto, lo enriquece
-automáticamente con información derivada de Git (commits recientes,
-divergencia respecto a la rama principal), de forma que cambiar de rama
-cambia automáticamente el contexto relevante.
+Branchpoint detects the active Git branch and persists context summaries
+per branch under `.git/branchpoint/<branch>.md`. When context is read, it's
+automatically enriched with information pulled from Git itself (recent
+commits, divergence from the default branch), so switching branches
+automatically switches the relevant context.
 
-El mismo ejecutable decide su modo según cómo lo lances:
+The same executable picks its mode based on how it's launched:
 
-- **Sin argumentos, con pipes** (así lo lanza un cliente MCP) → servidor
-  MCP por stdio.
-- **Con argumentos** → CLI con subcomandos (`status`, `list`, `context`).
-- **Sin argumentos, en una terminal** → modo interactivo con menú.
+- **No arguments, piped stdio** (how an MCP client launches it) → MCP
+  server over stdio.
+- **Arguments present** → CLI with subcommands (`status`, `list`,
+  `context`).
+- **No arguments, in a terminal** → interactive mode with a menu.
 
-## Para agentes IA (servidor MCP)
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full design: data flow,
+file-by-file responsibilities, the stack and why each piece was chosen,
+and the testing philosophy.
 
-Registra el servidor en Claude Code sin instalación previa:
+## For AI agents (MCP server)
+
+### Claude Code
 
 ```bash
 claude mcp add branchpoint -- npx -y branchpoint
 ```
 
-### Tools disponibles
+### Claude Desktop
+
+Add to `claude_desktop_config.json` (macOS:
+`~/Library/Application Support/Claude/claude_desktop_config.json`, Windows:
+`%APPDATA%\Claude\claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "branchpoint": {
+      "command": "npx",
+      "args": ["-y", "branchpoint"]
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to `.cursor/mcp.json` (project-level) or `~/.cursor/mcp.json` (global —
+Cursor uses the same format as Claude Desktop):
+
+```json
+{
+  "mcpServers": {
+    "branchpoint": {
+      "command": "npx",
+      "args": ["-y", "branchpoint"]
+    }
+  }
+}
+```
+
+### Cline
+
+Add to Cline's MCP settings file (VS Code global storage —
+`.../globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`,
+reachable from Cline's "Configure MCP Servers" menu):
+
+```json
+{
+  "mcpServers": {
+    "branchpoint": {
+      "command": "npx",
+      "args": ["-y", "branchpoint"],
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
+```
+
+### VS Code (agent mode)
+
+Add to `.vscode/mcp.json` in your workspace. Note the top-level key is
+`servers`, not `mcpServers` like the tools above:
+
+```json
+{
+  "servers": {
+    "branchpoint": {
+      "command": "npx",
+      "args": ["-y", "branchpoint"]
+    }
+  }
+}
+```
+
+MCP tools are only available in agent mode — they're invisible in Ask or
+Edit mode.
+
+> Any other MCP client not listed here should work the same way: it's a
+> standard stdio server launched with `npx -y branchpoint` (or
+> `node /absolute/path/to/branchpoint/dist/index.js` if you built from
+> source). If a client needs a different setup, please open an issue.
+
+### Tools exposed
 
 #### `get_branch_context`
 
-Sin parámetros. Devuelve el resumen manual guardado para la rama activa
-(o un aviso claro si no hay ninguno) combinado con contexto enriquecido
-derivado de Git: divergencia respecto a la rama principal (commits desde
-el merge-base + `diff --stat`, omitida si no hay rama principal detectada
-o si ya estás en ella) y los últimos 10 commits.
+No parameters. Returns the manually saved summary for the active branch
+(or a clear notice if there isn't one) combined with context enriched from
+Git: divergence from the default branch (commits since the merge-base plus
+`diff --stat`, omitted if no default branch is detected or you're already
+on it) and the 10 most recent commits.
 
-Ejemplo de salida real en una rama con contexto guardado y 2 commits de
-divergencia:
+Real output on a branch with a saved summary and 2 commits of divergence:
 
 ```markdown
-## Resumen guardado
+## Saved summary
 
-Implementando el flujo de login con OAuth. Falta manejar el refresh token.
+Implementing the OAuth login flow. Still need to handle the refresh token.
 
-## Divergencia respecto a main
+## Divergence from "main"
 
-2 commits desde el punto común con `main`.
+2 commit(s) since the divergence point.
 
  src/auth.ts | 45 +++++++++++++++++++++++++++++++++++++++++++++
  src/login.ts | 12 ++++++------
  2 files changed, 51 insertions(+), 6 deletions(-)
 
-## Últimos 10 commits
+## Recent commits
 
-- a1b2c3d feat: añadir manejo de refresh token
-- e4f5g6h feat: flujo inicial de login OAuth
+- a1b2c3d feat: add refresh token handling
+- e4f5g6h feat: initial OAuth login flow
 ...
 ```
 
+Degraded repository states are reported as normal tool content, never as
+protocol errors — a detached HEAD returns an explanatory message instead
+of crashing, and a repository with no commits yet says so plainly.
+
 #### `save_branch_context`
 
-Parámetro `summary: string`. Guarda un resumen manual de contexto para la
-rama activa, que persiste en `.git/branchpoint/<rama>.md` y se combina con
-el enriquecimiento automático en la siguiente lectura.
+Parameter `summary: string`. Saves a manual context summary for the active
+branch, persisted at `.git/branchpoint/<branch>.md` and combined with the
+Git-derived enrichment on the next read. An empty or whitespace-only
+summary is rejected with a clear message rather than saved as an empty
+file; summaries are capped at 50,000 characters (about 12,000 tokens —
+comfortably more than a real summary needs) to guard against accidental
+dumps.
 
-> `ping` existe como tool de diagnóstico interno para verificar que el
-> servidor MCP responde correctamente, no es una feature del producto.
+> `ping` exists as an internal diagnostic tool to verify the MCP server is
+> responding correctly; it isn't a product feature.
 
-## Para humanos (CLI)
+## For humans (CLI)
 
-Los mismos datos que ve tu agente, en tu terminal. Todos los subcomandos
-aceptan `--json` para salida cruda sin colores ni cajas (scripts, CI).
+The same data your agent sees, in your terminal. Every subcommand accepts
+`--json` for raw, color-free output (scripts, CI).
 
 ### `branchpoint status`
 
-Rama activa, si tiene contexto guardado y divergencia respecto a la rama
-principal:
+Active branch, whether it has saved context, and divergence from the
+default branch:
 
 ```
-╭────────────────────── branchpoint ───────────────────────╮
-│  Rama activa:  feature/oauth-login                       │
-│  Contexto:    guardado (actualizado 2026-07-11 18:30)    │
-│  Divergencia: 2 commit(s) desde el punto común con main  │
-╰──────────────────────────────────────────────────────────╯
+╭───────────────────────── branchpoint ──────────────────────────╮
+│  Active branch:  feature/oauth-login                           │
+│  Context:        saved (updated 2026-07-11 18:30)              │
+│  Divergence:     2 commit(s) since the common point with main  │
+╰────────────────────────────────────────────────────────────────╯
 ```
 
-Con `--json`:
+With `--json`:
 
 ```json
 {
@@ -123,6 +214,7 @@ Con `--json`:
   "hasContext": true,
   "updatedAt": "2026-07-11T16:30:00.000Z",
   "defaultBranch": "main",
+  "hasCommits": true,
   "divergence": {
     "baseBranch": "main",
     "commitCount": 2
@@ -132,88 +224,72 @@ Con `--json`:
 
 ### `branchpoint list`
 
-Todas las ramas con contexto guardado, la más reciente primero:
+Every branch with saved context, most recently updated first:
 
 ```
 ┌─────────────────────┬──────────────────┬──────────────────────────────────────────────────────────────┐
-│ Rama                │ Actualizado      │ Resumen                                                      │
+│ Branch              │ Updated          │ Summary                                                      │
 ├─────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
-│ feature/oauth-login │ 2026-07-11 18:30 │ Implementando el flujo de login con OAuth. Decidido usar…    │
+│ feature/oauth-login │ 2026-07-11 18:30 │ Implementing the OAuth login flow. Decided to use PKCE…      │
 ├─────────────────────┼──────────────────┼──────────────────────────────────────────────────────────────┤
-│ main                │ 2026-07-10 09:14 │ Rama estable. Ultima release: v1.2.0. No tocar hasta cerrar… │
+│ main                │ 2026-07-10 09:14 │ Stable branch. Latest release: v1.2.0. Don't touch until QA… │
 └─────────────────────┴──────────────────┴──────────────────────────────────────────────────────────────┘
 ```
 
-### `branchpoint context [rama]`
+### `branchpoint context [branch]`
 
-El contexto completo de una rama (por defecto, la activa):
+The full saved context for a branch (defaults to the active one):
 
 ```
-feature/oauth-login — actualizado 2026-07-11 18:30
+feature/oauth-login — updated 2026-07-11 18:30
 
-Implementando el flujo de login con OAuth. Decidido usar PKCE en vez de client secret. Falta manejar la expiracion del refresh token.
+Implementing the OAuth login flow. Decided to use PKCE instead of a client secret. Still need to handle refresh token expiration.
 ```
 
-### Modo interactivo
+### Interactive mode
 
-`branchpoint` sin argumentos en una terminal abre un menú para ver el
-contexto de la rama activa, listar todas las ramas guardadas o guardar un
-resumen nuevo, sin memorizar subcomandos. `Ctrl+C` sale limpiamente en
-cualquier momento.
+`branchpoint` with no arguments in a terminal opens a menu to view the
+active branch's context, list every saved branch, or save a new summary,
+without memorizing subcommands. `Ctrl+C` exits cleanly at any point.
 
-## Stack
+## Troubleshooting
 
-- Node 22 LTS
-- TypeScript en modo strict, ESM puro
-- [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk) v1, transporte stdio
-- Zod v4 para validación de esquemas
-- Commander, picocolors, cli-table3, boxen y @clack/prompts para la CLI
-- tsdown como bundler
-- Vitest para testing
+**Registering the server on Windows with a raw absolute path fails or
+behaves oddly.** If you're pointing an MCP client's config directly at
+`node C:\path\to\branchpoint\dist\index.js` instead of using `npx`,
+remember the config file is JSON: backslashes need to be escaped
+(`C:\\path\\to\\...`) or replaced with forward slashes
+(`C:/path/to/...`), or a raw Windows path will fail to parse or get
+silently mangled.
 
-## Instalación desde el código fuente
+**`npm install` or `yarn install` fails or warns inside a cloned copy of
+this repo.** The project pins pnpm via `devEngines.packageManager` in
+`package.json`; install [pnpm](https://pnpm.io) and use `pnpm install`
+instead.
 
-Para quien quiera tocar el código:
+**Everything returns "detached HEAD" / no active branch.** You're on a
+bare commit checkout or mid-rebase, where Git itself has no current
+branch name. This is a normal Git state, not a Branchpoint error: run
+`git checkout <branch>` to return to a branch, and context tracking
+resumes.
 
-```bash
-git clone https://github.com/Caarlosgg/branchpoint.git
-cd branchpoint
-pnpm install
-pnpm build
-```
+**Where is my data, and how do I delete it?** Context lives as one
+markdown file per branch under `.git/branchpoint/`, rooted at the
+repository's shared `.git` directory (so it's the same store across every
+worktree of a repo, not duplicated per worktree). To wipe everything:
+delete the `branchpoint` folder there. To remove a single branch's
+context: delete its corresponding `.md` file (or its parent folder, for
+branches with `/` in the name).
 
-Y registrar el servidor apuntando a la ruta absoluta del build:
+## Roadmap
 
-```bash
-claude mcp add branchpoint -- node /ruta/absoluta/a/branchpoint/dist/index.js
-```
+- Publish to npm (the package is ready; `npm publish` is a manual step
+  pending final review).
+- Detect and optionally clean up orphaned context (branches that were
+  deleted but still have a saved summary).
+- Commercial version (teams, remote sync) built on top of this
+  open-source core.
 
-## Estado del proyecto
-
-**Hecho:**
-
-- Fase 0 — entorno, stack y contexto documentado.
-- Fase 1 — walking skeleton MCP con tool `ping`.
-- Fase 2 — detección de rama activa y persistencia de contexto por rama en
-  `.git/branchpoint/`.
-- Fase 3 — suite de tests con Vitest (aislamiento por rama incluido).
-- Fase 4 — enriquecimiento automático de contexto vía `git log`/`diff`
-  (divergencia respecto a la rama principal, commits recientes).
-- Fase 5 — publicación del repositorio en GitHub.
-- Fase 6 — CI con GitHub Actions.
-- Fase 7 — paquete preparado para publicación en npm (`bin`, shebang,
-  metadatos).
-- Fase 8 — herramienta de doble cara: CLI con subcomandos (`status`,
-  `list`, `context`, `--json`) y modo interactivo, con test de regresión
-  que garantiza que el modo servidor MCP queda intacto.
-- 25 tests cubriendo `git.ts`, `storage.ts`, `queries.ts` y la regresión
-  del protocolo MCP contra el build real.
-
-**Roadmap:**
-
-- Publicación en npm (paquete ya preparado, pendiente de `npm publish`).
-- Versión comercial (equipos, sync remoto) sobre el mismo núcleo open-source.
-
-## Licencia
+## License
 
 [MIT](./LICENSE)
